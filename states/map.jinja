@@ -1,0 +1,111 @@
+# firefox-policy-formula
+#
+# This file is part of firefox-policy-formula.
+# Licensed under the Apache License, Version 2.0 (Apache-2.0); see LICENSE.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Shared assembly: builds the Firefox policy dictionary and path/toggle config
+# once, from pillar, so every state writes byte-identical policies.json.
+# Imported with (note: these header lines are plain text, not live tags):
+#   from "firefox-policy/map.jinja" import policies, cfg with context
+
+{#- ----- file paths and toggles ----- -#}
+{%- set cfg = {
+      'policy_file':  salt['pillar.get']('firefox:policies_file', '/etc/firefox/policies/policies.json'),
+      'manage_dir':   salt['pillar.get']('firefox:manage_policies_dir', True),
+      'manage_dist':  salt['pillar.get']('firefox:manage_distribution_fallback', False),
+      'dist_file':    salt['pillar.get']('firefox:distribution_policy_file', '/usr/lib64/firefox/distribution/policies.json'),
+} %}
+
+{#- ----- 1. direct pass-through policies (field name == Mozilla policy key) ----- -#}
+{%- set policies = {} %}
+{%- do policies.update(salt['pillar.get']('firefox:policies', {})) %}
+
+{#- ----- 2. first-run / post-update page suppression ----- -#}
+{%- if salt['pillar.get']('firefox:suppress_first_run_page', False) %}
+{%-   do policies.update({'OverrideFirstRunPage': ''}) %}
+{%- endif %}
+{%- if salt['pillar.get']('firefox:suppress_post_update_page', False) %}
+{%-   do policies.update({'OverridePostUpdatePage': ''}) %}
+{%- endif %}
+
+{#- ----- 3. Homepage (only when a URL is set) ----- -#}
+{%- set hp_url = salt['pillar.get']('firefox:homepage:url', '') %}
+{%- if hp_url %}
+{%-   do policies.update({'Homepage': {
+        'URL': hp_url,
+        'StartPage': salt['pillar.get']('firefox:homepage:start_page', 'homepage'),
+        'Locked': salt['pillar.get']('firefox:homepage:locked', False),
+      }}) %}
+{%- endif %}
+
+{#- ----- 4. Managed bookmarks (edit-group list -> Bookmarks) ----- -#}
+{%- set bookmarks = salt['pillar.get']('firefox:bookmarks', []) %}
+{%- if bookmarks %}
+{%-   do policies.update({'Bookmarks': bookmarks}) %}
+{%- endif %}
+
+{#- ----- 5. Extensions (edit-group list -> ExtensionSettings keyed dict) ----- -#}
+{%- set ext_list = salt['pillar.get']('firefox:extensions', []) %}
+{%- set ext_settings = {} %}
+{%- for e in ext_list %}
+{%-   if e.get('id') %}
+{%-     set entry = {'installation_mode': e.get('installation_mode', 'normal_installed')} %}
+{%-     if e.get('install_url') %}
+{%-       do entry.update({'install_url': e.get('install_url')}) %}
+{%-     endif %}
+{%-     do ext_settings.update({e.get('id'): entry}) %}
+{%-   endif %}
+{%- endfor %}
+{%- if ext_settings %}
+{%-   do policies.update({'ExtensionSettings': ext_settings}) %}
+{%- endif %}
+
+{#- ----- 6. DNS over HTTPS (FF63+, Fallback FF124+) ----- -#}
+{%- if salt['pillar.get']('firefox:manage_dnsoverhttps', False) %}
+{%-   set doh_in = salt['pillar.get']('firefox:dnsoverhttps', {}) %}
+{%-   set doh = {
+        'Enabled':  doh_in.get('enabled', False),
+        'Locked':   doh_in.get('locked', False),
+        'Fallback': doh_in.get('fallback', True),
+      } %}
+{%-   if doh_in.get('provider_url') %}
+{%-     do doh.update({'ProviderURL': doh_in.get('provider_url')}) %}
+{%-   endif %}
+{%-   set excl_raw = doh_in.get('excluded_domains', '') %}
+{%-   if excl_raw %}
+{%-     set excl = [] %}
+{%-     for d in excl_raw.replace(',', ' ').split() %}
+{%-       do excl.append(d) %}
+{%-     endfor %}
+{%-     if excl %}
+{%-       do doh.update({'ExcludedDomains': excl}) %}
+{%-     endif %}
+{%-   endif %}
+{%-   do policies.update({'DNSOverHTTPS': doh}) %}
+{%- endif %}
+
+{#- ----- 7. AI controls (FF149.0.2+, SmartWindow FF150+) ----- -#}
+{%- if salt['pillar.get']('firefox:manage_aicontrols', False) %}
+{%-   set ai = salt['pillar.get']('firefox:aicontrols', {}) %}
+{%-   set locked = ai.get('lock_settings', True) %}
+{%-   set feat_map = {
+        'default_state':          'Default',
+        'translations':           'Translations',
+        'pdf_alt_text':           'PDFAltText',
+        'smart_tab_groups':       'SmartTabGroups',
+        'link_preview_key_points':'LinkPreviewKeyPoints',
+        'sidebar_chatbot':        'SidebarChatbot',
+        'smart_window':           'SmartWindow',
+      } %}
+{%-   set aic = {} %}
+{%-   for field, key in feat_map.items() %}
+{%-     set val = ai.get(field, 'unset') %}
+{%-     if val in ['available', 'blocked'] %}
+{%-       do aic.update({key: {'Value': val, 'Locked': locked}}) %}
+{%-     endif %}
+{%-   endfor %}
+{%-   if aic %}
+{%-     do policies.update({'AIControls': aic}) %}
+{%-   endif %}
+{%- endif %}

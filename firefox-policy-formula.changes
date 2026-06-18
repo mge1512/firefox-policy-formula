@@ -1,0 +1,24 @@
+-------------------------------------------------------------------
+Thu Jun 18 09:22:52 UTC 2026 - mge1512@github
+
+- Version 0.2.1
+  * Relicense from GPL-3.0-only to Apache-2.0 (LICENSE, spec, and all
+    source-file headers; added SPDX-License-Identifier tags)
+
+-------------------------------------------------------------------
+Thu Jun 18 09:10:04 UTC 2026 - mge1512@github
+
+- Version 0.2.0
+  * Add distribution.sls: optional fallback that writes an identical
+    policies.json into the Firefox binary distribution directory
+    (default /usr/lib64/firefox/distribution/policies.json)
+  * Shared policy assembly moved to map.jinja so both locations match
+  * Form: add DNSOverHTTPS and AIControls (Firefox 149.0.2+) policies
+
+-------------------------------------------------------------------
+Thu Jun 18 08:32:27 UTC 2026 - mge1512@github
+
+- Initial package: firefox-policy-formula 0.1.0
+  * Salt formula with MLM/Uyuni form managing Firefox policies.json
+  * Covers telemetry, updates, certificates, homepage, bookmarks and
+    extensions; serialized via file.serialize as valid UTF-8 JSON

@@ -1,0 +1,218 @@
+# firefox-policy-formula
+#
+# This file is part of firefox-policy-formula.
+# Licensed under the Apache License, Version 2.0 (Apache-2.0); see LICENSE.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Form definition for SUSE Multi-Linux Manager / Uyuni.
+# Top-level keys map directly onto pillar (firefox:...).
+
+firefox:
+  $type: group
+
+  policies_file:
+    $type: text
+    $default: /etc/firefox/policies/policies.json
+    $help: >-
+      System-wide Firefox policy file. This distribution-independent path is
+      read by Firefox 60+ on Linux. Override only for non-standard installs.
+
+  manage_policies_dir:
+    $type: boolean
+    $default: True
+    $help: Create the parent directory of the policy file if it does not exist.
+
+  manage_distribution_fallback:
+    $type: boolean
+    $default: False
+    $help: >-
+      Also write an identical policies.json into the Firefox binary's distribution
+      directory, as a fallback for builds that read that location first.
+
+  distribution_policy_file:
+    $type: text
+    $default: /usr/lib64/firefox/distribution/policies.json
+    $help: Distribution fallback path. SLES / openSUSE install Firefox under /usr/lib64/firefox.
+
+  suppress_first_run_page:
+    $type: boolean
+    $default: True
+    $help: Suppress the first-run / welcome page (sets OverrideFirstRunPage to empty).
+
+  suppress_post_update_page:
+    $type: boolean
+    $default: True
+    $help: Suppress the "What's new" page after updates (sets OverridePostUpdatePage to empty).
+
+  # Direct pass-through policies. Each field name is the exact Mozilla policy key.
+  policies:
+    $type: group
+
+    DisableTelemetry:
+      $type: boolean
+      $default: True
+
+    DisableFirefoxStudies:
+      $type: boolean
+      $default: True
+
+    DisableAppUpdate:
+      $type: boolean
+      $default: True
+      $help: >-
+        Recommended on SLES / openSUSE: Firefox is updated through zypper, so the
+        in-product updater should be off to avoid drift against the packaged version.
+
+    DisablePocket:
+      $type: boolean
+      $default: False
+
+    DisableFeedbackCommands:
+      $type: boolean
+      $default: False
+
+    DontCheckDefaultBrowser:
+      $type: boolean
+      $default: True
+
+    NoDefaultBookmarks:
+      $type: boolean
+      $default: False
+
+    BlockAboutConfig:
+      $type: boolean
+      $default: False
+
+    Certificates:
+      $type: group
+      ImportEnterpriseRoots:
+        $type: boolean
+        $default: True
+        $help: Trust CAs from the operating system certificate store (sovereign / enterprise PKI).
+
+  manage_dnsoverhttps:
+    $type: boolean
+    $default: False
+    $help: Manage the DNS over HTTPS (DoH) policy. Leave off to not touch DoH at all.
+
+  dnsoverhttps:
+    $type: group
+    enabled:
+      $type: boolean
+      $default: False
+      $help: Enable DoH. Set off to force DoH off (e.g. to keep DNS on a sovereign resolver).
+    provider_url:
+      $type: text
+      $optional: True
+      $help: Alternate DoH provider URL, for example https://doh.example.de/dns-query
+    locked:
+      $type: boolean
+      $default: False
+      $help: Prevent users from changing DoH settings.
+    fallback:
+      $type: boolean
+      $default: True
+      $help: Allow fallback to the system resolver if the DoH provider fails (Firefox 124+).
+    excluded_domains:
+      $type: text
+      $optional: True
+      $help: Comma-separated domains excluded from DoH, for example intranet.example.de, example.de
+
+  manage_aicontrols:
+    $type: boolean
+    $default: False
+    $help: Manage Firefox AI controls (Firefox 149.0.2+). Leave off to not touch them.
+
+  aicontrols:
+    $type: group
+    lock_settings:
+      $type: boolean
+      $default: True
+      $help: Lock each configured AI feature so users cannot change it (applied as Locked).
+    default_state:
+      $type: select
+      $values: ["unset", "available", "blocked"]
+      $default: unset
+      $help: Default for AI features not set below. "unset" leaves the feature unmanaged.
+    translations:
+      $type: select
+      $values: ["unset", "available", "blocked"]
+      $default: unset
+      $help: AI-powered page translations.
+    pdf_alt_text:
+      $type: select
+      $values: ["unset", "available", "blocked"]
+      $default: unset
+      $help: AI-generated alt text for images in PDF documents.
+    smart_tab_groups:
+      $type: select
+      $values: ["unset", "available", "blocked"]
+      $default: unset
+      $help: AI-powered tab grouping suggestions.
+    link_preview_key_points:
+      $type: select
+      $values: ["unset", "available", "blocked"]
+      $default: unset
+      $help: AI-generated key point summaries shown in link previews.
+    sidebar_chatbot:
+      $type: select
+      $values: ["unset", "available", "blocked"]
+      $default: unset
+      $help: AI chatbot panel in the Firefox sidebar.
+    smart_window:
+      $type: select
+      $values: ["unset", "available", "blocked"]
+      $default: unset
+      $help: AI-powered window arrangement (Firefox 150+).
+
+  homepage:
+    $type: group
+    url:
+      $type: text
+      $optional: True
+      $help: Homepage URL. Leave empty to leave the homepage unmanaged.
+    start_page:
+      $type: select
+      $values: ["homepage", "homepage-locked", "none", "previous-session"]
+      $default: homepage
+    locked:
+      $type: boolean
+      $default: False
+
+  extensions:
+    $type: edit-group
+    $minItems: 0
+    $itemName: Extension
+    $help: Extensions to enforce or block fleet-wide (maps to the ExtensionSettings policy).
+    $prototype:
+      $type: group
+      id:
+        $type: text
+        $help: Extension ID, for example uBlock0@raymondhill.net
+      installation_mode:
+        $type: select
+        $values: ["force_installed", "normal_installed", "allowed", "blocked"]
+        $default: force_installed
+      install_url:
+        $type: text
+        $optional: True
+        $help: XPI URL (required for force_installed / normal_installed).
+
+  bookmarks:
+    $type: edit-group
+    $minItems: 0
+    $itemName: Bookmark
+    $help: Managed bookmarks (maps to the Bookmarks policy).
+    $prototype:
+      $type: group
+      Title:
+        $type: text
+      URL:
+        $type: text
+      Placement:
+        $type: select
+        $values: ["toolbar", "menu"]
+        $default: toolbar
+      Folder:
+        $type: text
+        $optional: True
