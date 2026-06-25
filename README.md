@@ -61,7 +61,7 @@ Web UI Formula Catalog automatically.
 
 ## Binary installation
 
-Grab the RPMs from https://build.opensuse.org/project/show/home:mge1512:zoda/firefox-policy-formula
+Grab the RPMs from https://build.opensuse.org/package/show/home:mge1512:zoda/firefox-policy-formula
 
 ## Deploy into SUSE Multi-Linux Manager 5.1
 
